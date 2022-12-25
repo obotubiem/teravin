@@ -65,17 +65,20 @@ module.exports = {
           .regex(/^[0-9]*$/)
           .required(),
         birthDate: Joi.date().format("YYYY-MM-DD").utc().required(),
-        addresses: Joi.array().items(
-          Joi.object({
-            id: Joi.string(),
-            address: Joi.string().required(),
-            isDefault: Joi.boolean(),
-          })
-        ).min(1).required().label('Address'),
+        addresses: Joi.array()
+          .items(
+            Joi.object({
+              address: Joi.string().required(),
+              isDefault: Joi.boolean(),
+            })
+          )
+          .min(1)
+          .required()
+          .label("Address"),
       });
 
       const { error } = schema.validate(req.body);
-      console.log(error);
+
       if (error) {
         return res
           .status(422)
@@ -92,7 +95,6 @@ module.exports = {
 
       return res.status(result.statusCode).json(resData.success(result.data));
     } catch (error) {
-      console.log(error);
       next(error);
     }
   },
@@ -100,13 +102,38 @@ module.exports = {
   updateEmployee: async (req, res, next) => {
     try {
       const { id } = req.params;
-      const request = {
-        name: req.body.name,
-        email: req.body.email,
-        mobile: req.body.mobile,
-        birthDate: new Date(req.body.birthDate),
-        addresses: req.body.addresses,
-      };
+
+      const request = req.body;
+
+      const schema = Joi.object().keys({
+        name: Joi.string().required().optional(),
+        email: Joi.string().email().required().optional(),
+        mobile: Joi.string()
+          .regex(/^[0-9]*$/)
+          .required()
+          .optional(),
+        birthDate: Joi.date().format("YYYY-MM-DD").utc().required().optional(),
+        addresses: Joi.array()
+          .items(
+            Joi.object({
+              id: Joi.number().integer(),
+              address: Joi.string().required(),
+              isDefault: Joi.boolean(),
+            })
+          )
+          .min(1)
+          .required()
+          .optional()
+          .label("Address"),
+      });
+
+      const { error } = schema.validate(req.body);
+
+      if (error) {
+        return res
+          .status(422)
+          .json(resData.failed(error.message, { details: error.details }));
+      }
 
       const result = await req.employeeUC.updateEmployee(request, id);
 
