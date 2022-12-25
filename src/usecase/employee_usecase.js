@@ -18,12 +18,17 @@ class EmployeeUseCase {
     const page = params.page ?? 1;
     const limit = parseInt(params.limit ?? 10);
     const offset = parseInt((page - 1) * limit);
+    const include = ["addresses"];
+    const orderBy = params.orderBy ?? "createdAt";
+    const orderDirection = params.orderDir ?? "DESC";
 
-    const employees = await this.employeeRepository.getAll(
+    const order = [[orderBy, orderDirection]];
+    const employees = await this.employeeRepository.getAll(params, {
       offset,
       limit,
-      params
-    );
+      order,
+      include,
+    });
 
     const start = 0 + (page - 1) * limit;
     const end = page * limit;
@@ -56,15 +61,15 @@ class EmployeeUseCase {
   }
 
   async getEmployeeById(id) {
-    let result = {
+    const result = {
       isSuccess: false,
       statusCode: 404,
       message: null,
       data: null,
     };
 
-    const address = await this.addressRepository.getMainByEmployeeId(id);
-    const employee = await this.employeeRepository.getById(id);
+    const include = ["addresses"];
+    const employee = await this.employeeRepository.getById(id, { include });
 
     if (employee === null) {
       result.statusCode = 404;
@@ -73,10 +78,7 @@ class EmployeeUseCase {
       return result;
     }
 
-    const data = {
-      ...employee.dataValues,
-      address,
-    };
+    const data = employee;
 
     result.isSuccess = true;
     result.statusCode = 200;
@@ -84,7 +86,7 @@ class EmployeeUseCase {
     return result;
   }
 
-  async createEmployee(data) {
+  async createEmployee(request) {
     const result = {
       isSuccess: false,
       statusCode: 400,
@@ -112,17 +114,35 @@ class EmployeeUseCase {
       newId = `${yearDate[0]}${yearDate[1]}${newNumber}`;
     }
 
-    data.id = newId;
+    request.id = newId;
 
-    const employee = await this.employeeRepository.create(data);
+    const employee = await this.employeeRepository.create(request);
+
+    if (request.addresses && request.addresses.length > 0) {
+      const checkDefault = request.addresses.find((o) => o.isDefault === true);
+      if (!checkDefault) {
+        request.addresses[0].isDefault = true;
+      }
+      for (const reqAddress of request.addresses) {
+        reqAddress.employeeId = employee.id;
+        await this.addressRepository.create(reqAddress);
+      }
+    }
+
+    const addresses = await employee.getAddresses();
+
+    const data = {
+      employee,
+      addresses,
+    };
 
     result.isSuccess = true;
     result.statusCode = 201;
-    result.data = employee;
+    result.data = data;
     return result;
   }
 
-  async updateEmployee(data, id) {
+  async updateEmployee(request, id) {
     const result = {
       isSuccess: false,
       statusCode: 400,
@@ -138,7 +158,41 @@ class EmployeeUseCase {
       return result;
     }
 
-    await this.employeeRepository.update(data, id);
+    await this.employeeRepository.update(request, id);
+
+    if (request.addresses) {
+      const checkDefault = request.addresses.find((o) => o.isDefault === true);
+      if (!checkDefault) {
+        request.addresses[0].isDefault = true;
+      }
+
+      // Remove other id
+      const existAddressIds = request.addresses
+        .filter((o) => o.id)
+        .map((o) => o.id);
+
+      if (existAddressIds.length) {
+        await this.addressRepository.delete({
+          [Op.and]: [
+            {
+              employeeId: employee.id,
+              id: {
+                [Op.notIn]: existAddressIds,
+              },
+            },
+          ],
+        });
+      }
+
+      for (const reqAddress of request.addresses) {
+        reqAddress.employeeId = employee.id;
+        if (reqAddress.id) {
+          await this.addressRepository.update(reqAddress, reqAddress.id);
+        } else {
+          await this.addressRepository.create(reqAddress);
+        }
+      }
+    }
 
     result.isSuccess = true;
     result.statusCode = 201;

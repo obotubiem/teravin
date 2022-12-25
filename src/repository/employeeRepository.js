@@ -6,47 +6,46 @@ class EmployeeRepository {
     this.employeeModel = Employee;
   }
 
-  async getAll(offset, limit, params) {
+  async getAll(params, options) {
     const filters = {};
-    const orderBy = params.orderBy ?? "createdAt";
-    const orderDirection = params.orderDir ?? "DESC";
 
-    const search = params.q;
-    if (search) {
-      filters[Op.or] = [
-        {
-          id: {
-            [Op.like]: `%${search}%`,
+    if (params) {
+      const search = params.q;
+      if (search) {
+        filters[Op.or] = [
+          {
+            id: {
+              [Op.like]: `%${search}%`,
+            },
           },
-        },
-        {
-          name: {
-            [Op.like]: `%${search}%`,
+          {
+            name: {
+              [Op.like]: `%${search}%`,
+            },
           },
-        },
-        {
-          email: {
-            [Op.like]: `%${search}%`,
+          {
+            email: {
+              [Op.like]: `%${search}%`,
+            },
           },
-        },
-      ];
+        ];
+      }
     }
 
     const result = await this.employeeModel.findAndCountAll({
       where: filters,
-      limit,
-      offset,
-      order: [[orderBy, orderDirection]],
+      ...options,
     });
 
     return result;
   }
 
-  async getById(id) {
+  async getById(id, options = {}) {
     const result = await this.employeeModel.findOne({
       where: {
         id,
       },
+      ...options,
     });
     return result;
   }

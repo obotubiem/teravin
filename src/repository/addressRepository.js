@@ -29,6 +29,11 @@ class AddressRepository {
     return result;
   }
 
+  async create(data) {
+    const result = await this.addressModel.create(data);
+    return result;
+  }
+
   async update(data, id) {
     const result = await this.addressModel.update(data, {
       where: {
@@ -38,9 +43,10 @@ class AddressRepository {
     return result;
   }
 
-  async create(data) {
-    const result = await this.addressModel.create(data);
-    return result;
+  async delete(condition) {
+    await this.addressModel.destroy({
+      where: condition,
+    });
   }
 }
 

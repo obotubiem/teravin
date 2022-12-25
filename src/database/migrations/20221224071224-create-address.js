@@ -8,14 +8,14 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.INTEGER,
       },
-      detailAddress: {
+      address: {
         type: Sequelize.STRING,
       },
-      mainAddress: {
+      isDefault: {
         type: Sequelize.BOOLEAN,
       },
       employeeId: {
-        type: Sequelize.INTEGER,
+        type: Sequelize.STRING,
       },
       createdAt: {
         allowNull: false,
